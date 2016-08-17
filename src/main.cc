@@ -8,15 +8,17 @@ const char usage_str[] = "slowpoke [-p|--port PORT] [-t|--timeout SECS]\n";
 
 int main(int argc, char **argv) {
   int timeout = 1;
+  int max_timeout = 10;
   int port = 9000;
   for (;;) {
     static struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"port", required_argument, 0, 'p'},
         {"timeout", required_argument, 0, 't'},
+        {"max-timeout", required_argument, 0, 'm'},
         {0, 0, 0, 0}};
     int option_index = 0;
-    int c = getopt_long(argc, argv, "hp:t:", long_options, &option_index);
+    int c = getopt_long(argc, argv, "hp:t:m:", long_options, &option_index);
     if (c == -1) {
       break;
     }
@@ -30,6 +32,9 @@ int main(int argc, char **argv) {
       case 'h':
         std::cout << usage_str;
         return 0;
+        break;
+      case 'm':
+        max_timeout = std::stod(optarg);
         break;
       case 'p':
         port = std::stod(optarg);
@@ -49,5 +54,5 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  return slowpoke::RunLoop(port, timeout);
+  return slowpoke::RunLoop(port, timeout, max_timeout);
 }

@@ -26,7 +26,8 @@ void OnEvent(bufferevent *bev, short events, void *ctx);
 
 std::unordered_set<Socket *> sockets_;
 
-int MAX_SECONDS = 1;
+int MAX_SECONDS;
+int MAX_TIMEOUT;
 
 int SCORE = 0;
 
@@ -124,7 +125,7 @@ void OnAccept(evconnlistener *listener, evutil_socket_t fd, sockaddr *addr,
   if (sockets_.empty()) {
     event *ev = evtimer_new(base, Shutdown, base);
     timeval tv;
-    tv.tv_sec = 10;
+    tv.tv_sec = MAX_TIMEOUT;
     tv.tv_usec = 0;
     evtimer_add(ev, &tv);
   }
@@ -133,8 +134,9 @@ void OnAccept(evconnlistener *listener, evutil_socket_t fd, sockaddr *addr,
 }
 
 namespace slowpoke {
-int RunLoop(int port, int timeout) {
+int RunLoop(int port, int timeout, int max_timeout) {
   MAX_SECONDS = timeout;
+  MAX_TIMEOUT = max_timeout;
 
   event_base *base = event_base_new();
   if (base == nullptr) {
