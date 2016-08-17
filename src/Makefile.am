@@ -1,3 +1,3 @@
 bin_PROGRAMS = slowloris
-slowloris_SOURCES = main.cc
+slowloris_SOURCES = loop.cc main.cc
 slowloris_LDADD = $(EVENT_LIBS)

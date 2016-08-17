@@ -1,53 +1,22 @@
 #include <getopt.h>
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-
-#include <event2/bufferevent.h>
-#include <event2/event.h>
-#include <event2/listener.h>
-
-#include <cstring>
 #include <iostream>
 
-const char usage_str[] = "slowloris [-p|--port PORT]\n";
+#include "./loop.h"
 
-event_base *base = nullptr;
-
-void OnRead(bufferevent *bev, void *ctx) {
-  std::cout << "got data on connection" << std::endl;
-}
-
-void OnEvent(bufferevent *bev, short events, void *ctx) {
-  std::cout << "got events " << events << " on connection" << std::endl;
-}
-
-void OnAccept(evconnlistener *listener, evutil_socket_t sock, sockaddr *addr,
-              int len, void *unused) {
-  std::cout << "got a new connection" << std::endl;
-  bufferevent *bev = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
-  bufferevent_setcb(bev, OnRead, nullptr, OnEvent, nullptr);
-
-  timeval tv;
-  tv.tv_sec = 1;
-  tv.tv_usec = 0;
-  bufferevent_set_timeouts(bev, &tv, nullptr);
-
-  bufferevent_enable(bev, EV_READ | EV_WRITE);
-
-  // evutil_closesocket(sock);
-}
+const char usage_str[] = "slowloris [-p|--port PORT] [-t|--timeout SECS]\n";
 
 int main(int argc, char **argv) {
+  int timeout = 1;
   int port = 9000;
   for (;;) {
-    static struct option long_options[] = {{"help", no_argument, 0, 'h'},
-                                           {"port", required_argument, 0, 'p'},
-                                           {0, 0, 0, 0}};
+    static struct option long_options[] = {
+        {"help", no_argument, 0, 'h'},
+        {"port", required_argument, 0, 'p'},
+        {"timeout", required_argument, 0, 't'},
+        {0, 0, 0, 0}};
     int option_index = 0;
-    int c = getopt_long(argc, argv, "hp:", long_options, &option_index);
+    int c = getopt_long(argc, argv, "hp:t:", long_options, &option_index);
     if (c == -1) {
       break;
     }
@@ -65,6 +34,9 @@ int main(int argc, char **argv) {
       case 'p':
         port = std::stod(optarg);
         break;
+      case 't':
+        timeout = std::stod(optarg);
+        break;
       case '?':
         // getopt_long should already have printed an error message
         break;
@@ -77,29 +49,5 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  base = event_base_new();
-  if (base == nullptr) {
-    std::cerr << "failed to event_base_new()\n";
-    return 1;
-  }
-
-  sockaddr_in listen_addr;
-  memset(&listen_addr, 0, sizeof(listen_addr));
-  listen_addr.sin_family = AF_INET;
-  listen_addr.sin_addr.s_addr = INADDR_ANY;
-  listen_addr.sin_port = htons(port);
-  evconnlistener *listener = evconnlistener_new_bind(
-      base, OnAccept, nullptr, LEV_OPT_REUSEABLE, SOMAXCONN,
-      (sockaddr *)&listen_addr, sizeof(listen_addr));
-  if (listener == nullptr) {
-    std::cerr << "failed to bind/listen on port\n";
-    return 1;
-  }
-
-  event_base_dispatch(base);
-
-  evconnlistener_free(listener);
-  event_base_free(base);
-
-  return 0;
+  return slowloris::RunLoop(port, timeout);
 }
