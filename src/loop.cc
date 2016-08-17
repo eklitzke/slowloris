@@ -132,7 +132,7 @@ void OnAccept(evconnlistener *listener, evutil_socket_t fd, sockaddr *addr,
 }
 }
 
-namespace slowloris {
+namespace slowpoke {
 int RunLoop(int port, int timeout) {
   MAX_SECONDS = timeout;
 

@@ -1,5 +1,5 @@
 #pragma once
 
-namespace slowloris {
+namespace slowpoke {
 int RunLoop(int port, int timeout);
 }

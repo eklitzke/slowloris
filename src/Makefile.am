@@ -1,3 +1,3 @@
-bin_PROGRAMS = slowloris
-slowloris_SOURCES = loop.cc main.cc
-slowloris_LDADD = $(EVENT_LIBS)
+bin_PROGRAMS = slowpoke
+slowpoke_SOURCES = loop.cc main.cc
+slowpoke_LDADD = $(EVENT_LIBS)

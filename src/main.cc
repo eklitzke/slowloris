@@ -4,7 +4,7 @@
 
 #include "./loop.h"
 
-const char usage_str[] = "slowloris [-p|--port PORT] [-t|--timeout SECS]\n";
+const char usage_str[] = "slowpoke [-p|--port PORT] [-t|--timeout SECS]\n";
 
 int main(int argc, char **argv) {
   int timeout = 1;
@@ -49,5 +49,5 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  return slowloris::RunLoop(port, timeout);
+  return slowpoke::RunLoop(port, timeout);
 }
