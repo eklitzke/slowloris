@@ -14,11 +14,14 @@ struct LoopState {
   timeval timeout;
 };
 
-void OnRead(bufferevent *bev, void *ctx) { std::cout << "data!" << std::endl; }
+void OnRead(bufferevent *bev, void *ctx) {
+  std::cout << "data on fd " << bufferevent_getfd(bev) << std::endl;
+}
 
 void OnEvent(bufferevent *bev, short events, void *ctx) {
   if ((events & READ_TIMEOUT) == READ_TIMEOUT) {
-    std::cout << "connection timed out\n";
+    std::cout << "connection timed out for fd " << bufferevent_getfd(bev)
+              << std::endl;
     bufferevent_free(bev);
   }
 }
