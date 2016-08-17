@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <unordered_set>
 
 #include <unistd.h>
 
@@ -19,8 +20,11 @@ namespace {
 std::random_device rand_device;
 std::default_random_engine rand_engine(rand_device());
 
+class Socket;
 void OnRead(bufferevent *bev, void *ctx);
 void OnEvent(bufferevent *bev, short events, void *ctx);
+
+std::unordered_set<Socket *> sockets_;
 
 int MAX_SECONDS = 1;
 
@@ -37,8 +41,12 @@ class Socket {
 
     bufferevent_setcb(buf_, OnRead, nullptr, OnEvent, this);
     bufferevent_enable(buf_, EV_READ | EV_WRITE);
+    sockets_.insert(this);
   }
-  ~Socket() { bufferevent_free(buf_); }
+  ~Socket() {
+    sockets_.erase(this);
+    bufferevent_free(buf_);
+  }
 
   bool IsReady() const {
     timeval tv;
@@ -65,7 +73,8 @@ class Socket {
     }
     next_.tv_sec += sec;
 
-    evbuffer_add_printf(bufferevent_get_output(buf_), "%d.%06d\n", sec, usec);
+    evbuffer_add_printf(bufferevent_get_output(buf_), "%d %d.%06d\n", SCORE,
+                        sec, usec);
   }
 
  private:
@@ -73,19 +82,33 @@ class Socket {
   bufferevent *buf_;
 };
 
+// close all of the sockets
+void CloseAllSockets(event_base *base) {
+  while (!sockets_.empty()) {
+    auto it = sockets_.begin();
+    delete *it;
+  }
+  event_base_loopbreak(base);
+  std::cout << SCORE << std::endl;
+}
+
+void Shutdown(evutil_socket_t fd, short what, void *ctx) {
+  event_base *base = reinterpret_cast<event_base *>(ctx);
+  CloseAllSockets(base);
+}
+
 void OnRead(bufferevent *bev, void *ctx) {
   static char buf[8192];
   bufferevent_read(bev, buf, sizeof(buf));
 
   Socket *sock = reinterpret_cast<Socket *>(ctx);
   if (sock->IsReady()) {
-    sock->UpdateTimeout();
     SCORE++;
+    sock->UpdateTimeout();
   } else {
-    SCORE -= 10;
-    delete sock;
+    event_base *base = bufferevent_get_base(bev);
+    CloseAllSockets(base);
   }
-  std::cout << "score = " << SCORE << std::endl;
 }
 
 void OnEvent(bufferevent *bev, short events, void *ctx) {
@@ -97,8 +120,14 @@ void OnEvent(bufferevent *bev, short events, void *ctx) {
 
 void OnAccept(evconnlistener *listener, evutil_socket_t fd, sockaddr *addr,
               int len, void *ctx) {
-  std::cout << "new connection, fd = " << fd << std::endl;
   event_base *base = evconnlistener_get_base(listener);
+  if (sockets_.empty()) {
+    event *ev = evtimer_new(base, Shutdown, base);
+    timeval tv;
+    tv.tv_sec = 10;
+    tv.tv_usec = 0;
+    evtimer_add(ev, &tv);
+  }
   Socket *sock = new Socket(base, fd);
 }
 }
