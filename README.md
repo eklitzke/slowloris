@@ -31,7 +31,8 @@ The timeout values are described below, in the "Protocol" section.
 ## Protocol
 
 Slowpoke uses asynchronous network I/O to handle a large number of connections.
-The Slowpoke server sends messages to clients in the following format:
+The Slowpoke server sends messages to clients using a simple text-based
+protocol:
 
     SCORE TIMEOUT_SECS [newline]
 
