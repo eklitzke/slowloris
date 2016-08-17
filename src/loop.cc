@@ -14,8 +14,6 @@
 
 #include <unistd.h>
 
-#define READ_TIMEOUT (BEV_EVENT_TIMEOUT | BEV_EVENT_READING)
-
 namespace {
 std::random_device rand_device;
 std::default_random_engine rand_engine(rand_device());
@@ -28,7 +26,6 @@ std::unordered_set<Socket *> sockets_;
 
 int MAX_SECONDS;
 int MAX_TIMEOUT;
-
 int SCORE = 0;
 
 class Socket {
