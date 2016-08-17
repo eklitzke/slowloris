@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include <event2/bufferevent.h>
 #include <event2/event.h>
 #include <event2/listener.h>
 
@@ -15,10 +16,28 @@ const char usage_str[] = "slowloris [-p|--port PORT]\n";
 
 event_base *base = nullptr;
 
+void OnRead(bufferevent *bev, void *ctx) {
+  std::cout << "got data on connection" << std::endl;
+}
+
+void OnEvent(bufferevent *bev, short events, void *ctx) {
+  std::cout << "got events " << events << " on connection" << std::endl;
+}
+
 void OnAccept(evconnlistener *listener, evutil_socket_t sock, sockaddr *addr,
               int len, void *unused) {
-  std::cout << "got a new connection\n";
-  evutil_closesocket(sock);
+  std::cout << "got a new connection" << std::endl;
+  bufferevent *bev = bufferevent_socket_new(base, sock, BEV_OPT_CLOSE_ON_FREE);
+  bufferevent_setcb(bev, OnRead, nullptr, OnEvent, nullptr);
+
+  timeval tv;
+  tv.tv_sec = 1;
+  tv.tv_usec = 0;
+  bufferevent_set_timeouts(bev, &tv, nullptr);
+
+  bufferevent_enable(bev, EV_READ | EV_WRITE);
+
+  // evutil_closesocket(sock);
 }
 
 int main(int argc, char **argv) {
