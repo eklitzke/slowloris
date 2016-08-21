@@ -28,14 +28,20 @@ struct GlobalState {
   int max_seconds;
   int max_timeout;
   int score;
+  event_base *base;
+
+  void ResetAndPrintScore() {
+    std::cout << score << std::endl;
+    score = 0;
+  }
 };
 
 class Socket {
  public:
   Socket() = delete;
   Socket(const Socket &other) = delete;
-  Socket(event_base *base, evutil_socket_t fd, GlobalState *state)
-      : buf_(bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE)),
+  Socket(GlobalState *state, evutil_socket_t fd)
+      : buf_(bufferevent_socket_new(state->base, fd, BEV_OPT_CLOSE_ON_FREE)),
         state_(state) {}
   ~Socket() {
     sockets_.erase(this);
@@ -89,17 +95,18 @@ class Socket {
 };
 
 // close all of the sockets
-void CloseAllSockets(event_base *base) {
+void CloseAllSockets(GlobalState *state) {
   while (!sockets_.empty()) {
     auto it = sockets_.begin();
     delete *it;
   }
-  event_base_loopbreak(base);
+  event_base_loopbreak(state->base);
+  state->ResetAndPrintScore();
 }
 
 void Shutdown(evutil_socket_t fd, short what, void *ctx) {
-  event_base *base = reinterpret_cast<event_base *>(ctx);
-  CloseAllSockets(base);
+  GlobalState *state = reinterpret_cast<GlobalState *>(ctx);
+  CloseAllSockets(state);
 }
 
 void OnRead(bufferevent *bev, void *ctx) {
@@ -111,12 +118,7 @@ void OnRead(bufferevent *bev, void *ctx) {
     sock->state()->score++;
     sock->UpdateTimeout();
   } else {
-    event_base *base = bufferevent_get_base(bev);
-    CloseAllSockets(base);
-
-    // print the score and reset it
-    std::cout << sock->state()->score << std::endl;
-    sock->state()->score = 0;
+    CloseAllSockets(sock->state());
   }
 }
 
@@ -130,24 +132,23 @@ void OnEvent(bufferevent *bev, short events, void *ctx) {
 void OnAccept(evconnlistener *listener, evutil_socket_t fd,
               sockaddr *unused_addr, int unused_len, void *ctx) {
   GlobalState *state = reinterpret_cast<GlobalState *>(ctx);
-  event_base *base = evconnlistener_get_base(listener);
   if (sockets_.empty()) {
-    event *ev = evtimer_new(base, Shutdown, base);
+    event *ev = evtimer_new(state->base, Shutdown, state);
     timeval tv;
     tv.tv_sec = state->max_timeout;
     tv.tv_usec = 0;
     evtimer_add(ev, &tv);
   }
-  Socket *sock = new Socket(base, fd, state);
+  Socket *sock = new Socket(state, fd);
   sock->Start();
 }
 }
 
 namespace slowpoke {
 int RunLoop(int port, int timeout, int max_timeout) {
-  GlobalState state{timeout, max_timeout, 0};
-
   event_base *base = event_base_new();
+  GlobalState state{timeout, max_timeout, 0, base};
+
   if (base == nullptr) {
     std::cerr << "failed to event_base_new()\n";
     return 1;
