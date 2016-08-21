@@ -25,9 +25,17 @@ void OnEvent(bufferevent *bev, short events, void *ctx);
 std::unordered_set<Socket *> sockets_;
 
 struct GlobalState {
+  GlobalState(int max_s, int max_br, event_base *b)
+      : max_seconds(max_s),
+        max_before_reset(max_br),
+        score(0),
+        reset_timer(nullptr),
+        base(b) {}
+
   int max_seconds;
-  int max_timeout;
+  int max_before_reset;
   int score;
+  event *reset_timer;
   event_base *base;
 
   void ResetAndPrintScore() {
@@ -94,17 +102,22 @@ class Socket {
   GlobalState *state_;
 };
 
+void Reset(evutil_socket_t unused_fd, short unused_what, void *ctx);
+
 // close all of the sockets
 void CloseAllSockets(GlobalState *state) {
   while (!sockets_.empty()) {
     auto it = sockets_.begin();
     delete *it;
   }
-  event_base_loopbreak(state->base);
   state->ResetAndPrintScore();
+
+  // schedule a Reset
+  event_free(state->reset_timer);
+  state->reset_timer = nullptr;
 }
 
-void Shutdown(evutil_socket_t unused_fd, short unused_what, void *ctx) {
+void Reset(evutil_socket_t unused_fd, short unused_what, void *ctx) {
   GlobalState *state = reinterpret_cast<GlobalState *>(ctx);
   CloseAllSockets(state);
 }
@@ -132,12 +145,12 @@ void OnEvent(bufferevent *unused_bev, short events, void *ctx) {
 void OnAccept(evconnlistener *listener, evutil_socket_t fd,
               sockaddr *unused_addr, int unused_len, void *ctx) {
   GlobalState *state = reinterpret_cast<GlobalState *>(ctx);
-  if (sockets_.empty()) {
-    event *ev = evtimer_new(state->base, Shutdown, state);
+  if (state->reset_timer == nullptr) {
+    state->reset_timer = evtimer_new(state->base, Reset, state);
     timeval tv;
-    tv.tv_sec = state->max_timeout;
+    tv.tv_sec = state->max_before_reset;
     tv.tv_usec = 0;
-    evtimer_add(ev, &tv);
+    evtimer_add(state->reset_timer, &tv);
   }
   Socket *sock = new Socket(state, fd);
   sock->Start();
@@ -147,7 +160,7 @@ void OnAccept(evconnlistener *listener, evutil_socket_t fd,
 namespace slowpoke {
 int RunLoop(int port, int timeout, int max_timeout) {
   event_base *base = event_base_new();
-  GlobalState state{timeout, max_timeout, 0, base};
+  GlobalState state(timeout, max_timeout, base);
 
   if (base == nullptr) {
     std::cerr << "failed to event_base_new()\n";
