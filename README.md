@@ -45,14 +45,6 @@ receive a line like this (although your timeout will likely be different):
 This means the score is 0, and the timeout for this connection is 0.827368
 seconds.
 
-The value of `TIMEOUT_SECS` in the invocation for the process determines the
-maximum timeout that will be sent in this status line. Thus by default the
-timeout will be a number between 0 and 1.
-
-If you send any data whatsoever on this connection *before* the timeout elapses
-the server will immediately terminate all connections and exit. It will print
-the final score to stdout.
-
 If you send any data whatsoever on the connection *after* the timeout elapses
 the server will increment the score and send a new status line with a new
 timeout. Therefore the second status line you see might be like this:
@@ -61,15 +53,22 @@ timeout. Therefore the second status line you see might be like this:
 
 This would mean the score is now 1, and the new timeout is 0.333523 seconds.
 
-After 10 seconds (or whatever you set the "max timeout" to) the server will
-terminate, regardless of whether you've respected timeouts. The score will be
-printed to stdout, and the score will be the same as the last score sent to the
-last connection that respected the timeout rules. The 10 second timer starts
-only after the first connection is made to the server.
+If you send any data whatsoever on this connection *before* the timeout elapses
+the server will immediately terminate all connections and exit.
+
+After 10 seconds (or whatever you the max timeout was set to) the server will
+close all connections, just as it would have if you had send data before a
+timeout elapsed.
+
+In both cases where the server terminates connections it will reset its internal
+state. This means that the score is reset to zero, and the global reset timer
+will become 10 again once you initiate your next new connection.
+
+Your goal is to get the highest maximum score possible.
 
 The server doesn't actually care what data is sent by clients, or how many bytes
 are sent. A good practice is to just have the client send the server a single
-byte, but it should be OK to send larger buffers too.
+byte, but it is OK to send larger buffers too.
 
 ## The Goal
 
