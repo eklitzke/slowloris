@@ -104,7 +104,7 @@ void CloseAllSockets(GlobalState *state) {
   state->ResetAndPrintScore();
 }
 
-void Shutdown(evutil_socket_t fd, short what, void *ctx) {
+void Shutdown(evutil_socket_t unused_fd, short unused_what, void *ctx) {
   GlobalState *state = reinterpret_cast<GlobalState *>(ctx);
   CloseAllSockets(state);
 }
@@ -122,7 +122,7 @@ void OnRead(bufferevent *bev, void *ctx) {
   }
 }
 
-void OnEvent(bufferevent *bev, short events, void *ctx) {
+void OnEvent(bufferevent *unused_bev, short events, void *ctx) {
   if (events & (BEV_EVENT_ERROR | BEV_EVENT_EOF)) {
     Socket *sock = reinterpret_cast<Socket *>(ctx);
     delete sock;
