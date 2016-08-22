@@ -124,14 +124,26 @@ void Reset(evutil_socket_t unused_fd, short unused_what, void *ctx) {
 
 void OnRead(bufferevent *bev, void *ctx) {
   static char buf[8192];
-  bufferevent_read(bev, buf, sizeof(buf));
 
   Socket *sock = reinterpret_cast<Socket *>(ctx);
+  GlobalState *state = sock->state();
+  size_t bytes_read = bufferevent_read(bev, buf, sizeof(buf));
+#ifdef DEBUG
+  buf[bytes_read] = '\0';
+  if (strstr(buf, "x")) {
+    CloseAllSockets(state);
+    event_base_loopbreak(state->base);
+    return;
+  }
+#else
+  assert(bytes_read > 0);
+#endif
+
   if (sock->IsReady()) {
     sock->state()->score++;
     sock->UpdateTimeout();
   } else {
-    CloseAllSockets(sock->state());
+    CloseAllSockets(state);
   }
 }
 
