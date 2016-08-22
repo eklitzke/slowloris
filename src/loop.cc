@@ -40,8 +40,12 @@ struct GlobalState {
   event_base *base;
   std::unordered_set<Socket *> sockets;
 
-  void ResetAndPrintScore() {
+  void IncreaseScore() {
+    score++;
     max_score = std::max(score, max_score);
+  }
+
+  void ResetAndPrintScore() {
     std::cout << score << " / " << max_score << std::endl;
     score = 0;
   }
@@ -93,8 +97,8 @@ class Socket {
     }
     next_.tv_sec += sec;
 
-    evbuffer_add_printf(bufferevent_get_output(buf_), "%d %d.%06d\n",
-                        state_->score, sec, usec);
+    evbuffer_add_printf(bufferevent_get_output(buf_), "%d.%06d %d %d\n", sec,
+                        usec, state_->score, state_->max_score);
   }
 
   GlobalState *state() { return state_; }
@@ -144,7 +148,7 @@ void OnRead(bufferevent *bev, void *ctx) {
 #endif
 
   if (sock->IsReady()) {
-    sock->state()->score++;
+    sock->state()->IncreaseScore();
     sock->UpdateTimeout();
   } else {
     CloseAllSockets(state);
