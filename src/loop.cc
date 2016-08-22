@@ -5,6 +5,7 @@
 #include <event2/event.h>
 #include <event2/listener.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -27,18 +28,21 @@ struct GlobalState {
       : max_seconds(max_s),
         max_before_reset(max_br),
         score(0),
+        max_score(0),
         reset_timer(nullptr),
         base(b) {}
 
   int max_seconds;
   int max_before_reset;
   int score;
+  int max_score;
   event *reset_timer;
   event_base *base;
   std::unordered_set<Socket *> sockets;
 
   void ResetAndPrintScore() {
-    std::cout << score << std::endl;
+    max_score = std::max(score, max_score);
+    std::cout << score << " / " << max_score << std::endl;
     score = 0;
   }
 };
