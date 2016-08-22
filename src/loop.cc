@@ -22,8 +22,6 @@ class Socket;
 void OnRead(bufferevent *bev, void *ctx);
 void OnEvent(bufferevent *bev, short events, void *ctx);
 
-std::unordered_set<Socket *> sockets_;
-
 struct GlobalState {
   GlobalState(int max_s, int max_br, event_base *b)
       : max_seconds(max_s),
@@ -37,6 +35,7 @@ struct GlobalState {
   int score;
   event *reset_timer;
   event_base *base;
+  std::unordered_set<Socket *> sockets;
 
   void ResetAndPrintScore() {
     std::cout << score << std::endl;
@@ -52,7 +51,7 @@ class Socket {
       : buf_(bufferevent_socket_new(state->base, fd, BEV_OPT_CLOSE_ON_FREE)),
         state_(state) {}
   ~Socket() {
-    sockets_.erase(this);
+    state_->sockets.erase(this);
     bufferevent_free(buf_);
   }
 
@@ -62,7 +61,7 @@ class Socket {
 
     bufferevent_setcb(buf_, OnRead, nullptr, OnEvent, this);
     bufferevent_enable(buf_, EV_READ | EV_WRITE);
-    sockets_.insert(this);
+    state_->sockets.insert(this);
   }
 
   bool IsReady() const {
@@ -106,8 +105,8 @@ void Reset(evutil_socket_t unused_fd, short unused_what, void *ctx);
 
 // close all of the sockets
 void CloseAllSockets(GlobalState *state) {
-  while (!sockets_.empty()) {
-    auto it = sockets_.begin();
+  while (!state->sockets.empty()) {
+    auto it = state->sockets.begin();
     delete *it;
   }
   state->ResetAndPrintScore();
