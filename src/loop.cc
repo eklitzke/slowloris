@@ -129,6 +129,7 @@ void OnRead(bufferevent *bev, void *ctx) {
   GlobalState *state = sock->state();
   size_t bytes_read = bufferevent_read(bev, buf, sizeof(buf));
 #ifdef DEBUG
+  // this code path is useful for running slowpoke w/ valgrind
   buf[bytes_read] = '\0';
   if (strstr(buf, "x")) {
     CloseAllSockets(state);
